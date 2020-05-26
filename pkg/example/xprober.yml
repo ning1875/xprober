@@ -1,0 +1,14 @@
+# my global config
+
+rpc_listen_addr: :6001
+metrics_listen_addr: :6002
+prober_targets:
+#  - prober_type: icmp
+#    region: region1
+#    target:
+#      - "1.1.1.1"
+#      - "2.2.2.2"
+  - prober_type: http
+    region: region2
+    target:
+      - http://yourdomain.com/api/xxx/xxx

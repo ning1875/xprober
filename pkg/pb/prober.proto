@@ -1,0 +1,80 @@
+syntax = "proto3";
+
+package pb;
+
+
+// The request message containing the worker_name.
+message ProberTargetsGetRequest {
+  string local_region = 1;
+  string local_ip = 2;
+}
+// Targets
+message Targets {
+  string prober_type = 1;
+  string region = 2;
+  repeated string target = 3;
+}
+
+
+// The response message containing the ProberTargets
+message ProberTargetsGetResponse {
+  repeated Targets targets =1 ;
+}
+
+
+
+// The request message of proberesult
+message ProberResultPushRequest{
+    repeated ProberResultOne prober_results =1;
+}
+
+// ProberResultOne
+message ProberResultOne{
+    string worker_name  =1;
+    string metric_name  =2;
+    string target_addr  =3;
+    string source_region  =4;
+    string target_region  =5;
+    string probe_type  =6;
+    int64 time_stamp  =7;
+    float value  =8;
+
+}
+
+message ProberResultPushResponse {
+  int32 success_num = 1;
+}
+
+// ProberAgentIpReport
+message ProberAgentIpReportRequest{
+    string ip  =1;
+    string region =2;
+}
+
+message ProberAgentIpReportResponse{
+    bool   is_success = 1;
+}
+
+
+// The prober target service definition.
+service GetProberTarget {
+  // Sends Get ProberTargets request
+  rpc GetProberTargets (ProberTargetsGetRequest) returns (ProberTargetsGetResponse) {}
+}
+
+// The prober result service definition.
+service PushProberResult {
+  // Sends Get ProberTargets request
+  rpc PushProberResults (ProberResultPushRequest) returns (ProberResultPushResponse) {}
+}
+
+// The prober agent report ip  service definition.
+service ProberAgentIpReport {
+  // Sends Get ProberTargets request
+  rpc ProberAgentIpReports (ProberAgentIpReportRequest) returns (ProberAgentIpReportResponse) {}
+}
+
+
+
+
+
