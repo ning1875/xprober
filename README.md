@@ -1,6 +1,6 @@
 # Xprober
-![image](https://github.com/ning1875/xprober/images/icmp.jpg)
-![image](https://github.com/ning1875/xprober/images/http.jpg)
+![image](https://github.com/ning1875/xprober/blob/master/images/icmp.jpg)
+![image](https://github.com/ning1875/xprober/blob/master/images/http.jpg)
 
 
 `xprober`  is a distributed c/s architecture interface detection framework:
