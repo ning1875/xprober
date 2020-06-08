@@ -24,6 +24,11 @@ func execCmd(cmdStr string, logger log.Logger) (success bool, outStr string) {
 	err := cmd.Run()
 	if err != nil {
 		level.Error(logger).Log("execCmdMsg", err, "cmd", cmdStr)
+
+		if strings.Contains(err.Error(), "killed") {
+			return false, "killed"
+		}
+
 		return false, string(stderr.Bytes())
 	}
 	outStr = string(stdout.Bytes())
@@ -78,12 +83,41 @@ func ProbeICMP(lt *LocalTarget) ([]*pb.ProberResultOne) {
 	level.Info(lt.logger).Log("msg", "LocalTarget  ProbeICMP start ...", "uid", lt.Uid(), "pingcmd", pingCmd)
 	success, outPutStr := execCmd(pingCmd, lt.logger)
 	prs := make([]*pb.ProberResultOne, 0)
+
+	var (
+		pkgdLine    string
+		latenLinke  string
+		pkgRateNum  float64
+		pingEwmaNum float64
+		pingSuccess float64
+	)
+
+	pkgRateNum = -1
+	pingEwmaNum = -1
+	pingSuccess = 0
+	prSu := pb.ProberResultOne{
+		MetricName:   common.MetricsNamePingTargetSuccess,
+		WorkerName:   LocalIp,
+		TargetAddr:   lt.Addr,
+		SourceRegion: LocalRegion,
+		TargetRegion: lt.TargetRegion,
+		ProbeType:    lt.ProbeType,
+		TimeStamp:    time.Now().Unix(),
+		Value:        float32(pingSuccess),
+	}
 	if success == false {
 		level.Error(lt.logger).Log("msg", "ProbeICMP failed ...", "uid", lt.Uid(), "err_str", outPutStr)
+
+		if strings.Contains(outPutStr, "killed") {
+			level.Error(lt.logger).Log("msg", "ProbeICMP killed ...", "uid", lt.Uid(), "err_str", outPutStr)
+			prSu.Value = -1
+			prs = append(prs, &prSu)
+			return prs
+
+		}
 		return prs
 	}
-	var pkgdLine string
-	var latenLinke string
+
 	for _, line := range (strings.Split(outPutStr, "\n")) {
 		if strings.Contains(line, "packets transmitted") {
 			pkgdLine = line
@@ -95,14 +129,27 @@ func ProbeICMP(lt *LocalTarget) ([]*pb.ProberResultOne) {
 		}
 
 	}
-	pkgRate := strings.Split(pkgdLine, " ")[5]
-	pkgRate = strings.Replace(pkgRate, "%", "", -1)
-	pkgRateNum, _ := strconv.ParseFloat(pkgRate, 64)
-	pingEwmas := strings.Split(latenLinke, " ")
+	/*
+	PING 10.21.45.237 (10.21.45.237) 100(128) bytes of data.
 
-	pingEwma := pingEwmas[len(pingEwmas)-2]
-	pingEwma = strings.Split(pingEwma, "/")[1]
-	pingEwmaNum, _ := strconv.ParseFloat(pingEwma, 64)
+	--- 10.21.45.237 ping statistics ---
+	50 packets transmitted, 0 received, 100% packet loss, time 499ms
+	*/
+
+	if len(pkgdLine) > 0 {
+
+		pkgRate := strings.Split(pkgdLine, " ")[5]
+		pkgRate = strings.Replace(pkgRate, "%", "", -1)
+		pkgRateNum, _ = strconv.ParseFloat(pkgRate, 64)
+	}
+
+	if len(latenLinke) > 0 {
+		pingEwmas := strings.Split(latenLinke, " ")
+
+		pingEwma := pingEwmas[len(pingEwmas)-2]
+		pingEwma = strings.Split(pingEwma, "/")[1]
+		pingEwmaNum, _ = strconv.ParseFloat(pingEwma, 64)
+	}
 
 	level.Debug(lt.logger).Log("msg", "ProbeICMP_one_res", "pingcmd", pingCmd, "outPutStr", outPutStr, "pkgRateNum", float32(pkgRateNum), "pingEwmaNum", float32(pingEwmaNum))
 	prDr := pb.ProberResultOne{
@@ -126,11 +173,16 @@ func ProbeICMP(lt *LocalTarget) ([]*pb.ProberResultOne) {
 		TimeStamp:    time.Now().Unix(),
 		Value:        float32(pingEwmaNum),
 	}
+	if pkgRateNum == 100 {
+		prSu.Value = -1
+	} else {
+		prSu.Value = 1
+	}
+
+	prs = append(prs, &prSu)
 	prs = append(prs, &prDr)
 	prs = append(prs, &prLaten)
 	//level.Info(lt.logger).Log("msg", "ping_res_prDr", "ts", prDr.TimeStamp, "value", prDr.Value)
 	//level.Info(lt.logger).Log("msg", "ping_res_prLaten", "ts", prLaten.TimeStamp, "value", prLaten.Value)
 	return prs
 }
-
-

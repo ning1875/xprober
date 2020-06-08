@@ -37,6 +37,12 @@ var (
 		Name: common.MetricsNamePingPackageDrop,
 		Help: "rate of ping packagedrop ",
 	}, []string{"source_region", "target_region"})
+
+	PingTargetSuccessGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: common.MetricsNamePingTargetSuccess,
+		Help: "target success",
+	}, []string{"source_region", "target_region"})
+
 	HttpInterFaceSuccessGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: common.MetricsNameHttpInterfaceSuccess,
 		Help: "whether http probe success",
@@ -67,6 +73,7 @@ func NewMetrics() {
 
 	prometheus.DefaultRegisterer.MustRegister(PingLatencyGaugeVec)
 	prometheus.DefaultRegisterer.MustRegister(PingPackageDropGaugeVec)
+	prometheus.DefaultRegisterer.MustRegister(PingTargetSuccessGaugeVec)
 	prometheus.DefaultRegisterer.MustRegister(HttpInterFaceSuccessGaugeVec)
 	prometheus.DefaultRegisterer.MustRegister(HttpHttpResolvedurationMillonsecondsGaugeVec)
 	prometheus.DefaultRegisterer.MustRegister(HttpTlsDurationMillonsecondsGaugeVec)
@@ -178,12 +185,12 @@ func HttpDataProcess(logger log.Logger) {
 	}
 
 	// compute data with avg or pct99
-	dealWithDataMap(resoleMap, HttpHttpResolvedurationMillonsecondsGaugeVec, "http")
-	dealWithDataMap(connMap, HttpConnectDurationMillonsecondsGaugeVec, "http")
-	dealWithDataMap(tlsMap, HttpTlsDurationMillonsecondsGaugeVec, "http")
-	dealWithDataMap(processMap, HttpProcessingDurationMillonsecondsGaugeVec, "http")
-	dealWithDataMap(transferMap, HttpTransferDurationMillonsecondsGaugeVec, "http")
-	dealWithDataMap(interSuccMap, HttpInterFaceSuccessGaugeVec, "http")
+	dealWithDataMapAvg(resoleMap, HttpHttpResolvedurationMillonsecondsGaugeVec, "http")
+	dealWithDataMapAvg(connMap, HttpConnectDurationMillonsecondsGaugeVec, "http")
+	dealWithDataMapAvg(tlsMap, HttpTlsDurationMillonsecondsGaugeVec, "http")
+	dealWithDataMapAvg(processMap, HttpProcessingDurationMillonsecondsGaugeVec, "http")
+	dealWithDataMapAvg(transferMap, HttpTransferDurationMillonsecondsGaugeVec, "http")
+	dealWithDataMapAvg(interSuccMap, HttpInterFaceSuccessGaugeVec, "http")
 }
 
 func IcmpDataProcess(logger log.Logger) {
@@ -194,6 +201,7 @@ func IcmpDataProcess(logger log.Logger) {
 
 	latencyMap := make(map[string][]float64)
 	packagedropMap := make(map[string][]float64)
+	targetSuccMap := make(map[string][]float64)
 
 	f := func(k, v interface{}) bool {
 		key := k.(string)
@@ -223,7 +231,13 @@ func IcmpDataProcess(logger log.Logger) {
 					} else {
 						packagedropMap[uniqueKey] = append(packagedropMap[uniqueKey], float64(va.Value))
 					}
-
+				case "target":
+					old := targetSuccMap[uniqueKey]
+					if len(old) == 0 {
+						targetSuccMap[uniqueKey] = []float64{float64(va.Value)}
+					} else {
+						targetSuccMap[uniqueKey] = append(targetSuccMap[uniqueKey], float64(va.Value))
+					}
 				}
 			}
 
@@ -238,12 +252,14 @@ func IcmpDataProcess(logger log.Logger) {
 	}
 
 	// compute data with avg or pct99
-	dealWithDataMap(latencyMap, PingLatencyGaugeVec, "icmp")
-	dealWithDataMap(packagedropMap, PingPackageDropGaugeVec, "icmp")
+	dealWithDataMapAvg(latencyMap, PingLatencyGaugeVec, "icmp")
+	dealWithDataMapAvg(packagedropMap, PingPackageDropGaugeVec, "icmp")
+
+	dealWithDataMapBool(targetSuccMap, PingTargetSuccessGaugeVec, "icmp")
 
 }
 
-func dealWithDataMap(dataM map[string][]float64, promeVec *prometheus.GaugeVec, pType string) {
+func dealWithDataMapAvg(dataM map[string][]float64, promeVec *prometheus.GaugeVec, pType string) {
 	for uniqueKey, datas := range dataM {
 		//MetricName := strings.Split(uniqueKey, MetricUniqueSeparator)[0]
 		SourceRegion := strings.Split(uniqueKey, MetricUniqueSeparator)[1]
@@ -259,6 +275,32 @@ func dealWithDataMap(dataM map[string][]float64, promeVec *prometheus.GaugeVec, 
 			promeVec.With(prometheus.Labels{"source_region": SourceRegion, "addr": TargetRegionOrAddr}).Set(avg)
 		case "icmp":
 			promeVec.With(prometheus.Labels{"source_region": SourceRegion, "target_region": TargetRegionOrAddr}).Set(avg)
+		}
+
+	}
+}
+
+func dealWithDataMapBool(dataM map[string][]float64, promeVec *prometheus.GaugeVec, pType string) {
+
+	for uniqueKey, datas := range dataM {
+		//MetricName := strings.Split(uniqueKey, MetricUniqueSeparator)[0]
+		SourceRegion := strings.Split(uniqueKey, MetricUniqueSeparator)[1]
+		TargetRegionOrAddr := strings.Split(uniqueKey, MetricUniqueSeparator)[2]
+		//var sum, avg float64
+		//num := len(datas)
+
+		thisFailNum := 0
+
+		for _, ds := range datas {
+			if ds == -1 {
+				thisFailNum += 1
+			}
+		}
+
+		if thisFailNum == len(datas) {
+			promeVec.With(prometheus.Labels{"source_region": SourceRegion, "target_region": TargetRegionOrAddr}).Set(0)
+		} else {
+			promeVec.With(prometheus.Labels{"source_region": SourceRegion, "target_region": TargetRegionOrAddr}).Set(1)
 		}
 
 	}

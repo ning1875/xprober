@@ -5,8 +5,9 @@ package common
 */
 const (
 	// ping
-	MetricsNamePingLatency     = `ping_latency_millonseconds`
-	MetricsNamePingPackageDrop = `ping_packageDrop_rate`
+	MetricsNamePingLatency       = `ping_latency_millonseconds`
+	MetricsNamePingPackageDrop   = `ping_packageDrop_rate`
+	MetricsNamePingTargetSuccess = `ping_target_success`
 
 	// http
 	MetricsNameHttpResolvedurationMillonseconds    = `http_resolveDuration_millonseconds`
