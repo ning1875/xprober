@@ -1,6 +1,6 @@
 ## 2.0 / 2020-06-19
 
-* [CHANGE] ping target 不分再region
+* [CHANGE] http target 不分再region
 * [BUGFIX] file 和 ip target map更新冲突
 
 ## 1.0 / 2020-06-12
