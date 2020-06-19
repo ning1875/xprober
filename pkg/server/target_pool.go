@@ -161,23 +161,22 @@ func (t *TargetFlushManager) refreshFromConfigFile() {
 
 		OtherRegionProberMap.Store(k, v)
 	}
-	//rangeIcmpMap()
 }
 
 func (t *TargetFlushManager) refresh() {
-	t.refreshFromConfigFile()
-	t.flushAgentIpIntoGlobalMap()
+	go t.refreshFromConfigFile()
+	go t.flushAgentIpIntoGlobalMap()
 }
 
 func GetTargetsByRegion(sourceRegion string) (res []*pb.Targets) {
 
 	f := func(k, v interface{}) bool {
-		key := k.(string)
+		//key := k.(string)
 		va := v.([]*pb.Targets)
-		if key != sourceRegion {
-			res = append(res, va...)
+		//if key != sourceRegion {
+		res = append(res, va...)
 
-		}
+		//}
 		return true
 	}
 	fi := func(k, v interface{}) bool {
