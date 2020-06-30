@@ -16,7 +16,7 @@ var (
 	Probers            map[string]ProbeFn
 	LTM                *LocalTargetManger
 	ProberFuncInterval = 15 * time.Second
-	TargetUpdateChan   = make(chan *pb.ProberTargetsGetResponse)
+	TargetUpdateChan   = make(chan *pb.ProberTargetsGetResponse, 1)
 )
 
 //type ProbeFn func(ctx context.Context, lt *LocalTarget, logger log.Logger) pb.ProberResultOne
@@ -39,6 +39,51 @@ func (ltm *LocalTargetManger) GetMapKeys() []string {
 		i++
 	}
 	return keys
+}
+
+func (ltm *LocalTargetManger) realRefreshWork(tgs *pb.ProberTargetsGetResponse) {
+	level.Info(ltm.logger).Log("msg", "realRefreshWork start")
+	LTM.mux.Lock()
+	defer LTM.mux.Unlock()
+	remoteTargetIds := make(map[string]bool)
+
+	localIds := LTM.GetMapKeys()
+	for _, t := range tgs.Targets {
+		pbFunc, funcExists := Probers[t.ProberType]
+		if funcExists == false {
+			continue
+		}
+
+		for _, addr := range t.Target {
+			thisId := t.Region + addr + t.ProberType
+			remoteTargetIds[thisId] = true
+			if _, ok := LTM.Map[thisId]; ok {
+				continue
+			}
+
+			nt := &LocalTarget{
+				logger:       LTM.logger,
+				Addr:         addr,
+				SourceRegion: LocalRegion,
+				TargetRegion: t.Region,
+				ProbeType:    t.ProberType,
+				Prober:       pbFunc,
+				QuitChan:     make(chan struct{}),
+			}
+			LTM.Map[thisId] = nt
+			go nt.Start()
+
+		}
+
+	}
+	// stop old
+	for _, key := range localIds {
+		if _, found := remoteTargetIds[key]; !found {
+			LTM.Map[key].Stop()
+			delete(LTM.Map, key)
+		}
+	}
+
 }
 
 func NewLocalTargetManger(logger log.Logger) {
@@ -93,47 +138,7 @@ func doRefreshWork(logger log.Logger) {
 		select {
 		case tgs := <-TargetUpdateChan:
 			// refresh local map
-
-			LTM.mux.Lock()
-			defer LTM.mux.Unlock()
-			remoteTargetIds := make(map[string]bool)
-
-			localIds := LTM.GetMapKeys()
-			for _, t := range tgs.Targets {
-				pbFunc, funcExists := Probers[t.ProberType]
-				if funcExists == false {
-					continue
-				}
-
-				for _, addr := range t.Target {
-					thisId := t.Region + addr + t.ProberType
-					remoteTargetIds[thisId] = true
-					if _, ok := LTM.Map[thisId]; ok {
-						continue
-					}
-
-					nt := &LocalTarget{
-						logger:       logger,
-						Addr:         addr,
-						SourceRegion: LocalRegion,
-						TargetRegion: t.Region,
-						ProbeType:    t.ProberType,
-						Prober:       pbFunc,
-						QuitChan:     make(chan struct{}),
-					}
-					LTM.Map[thisId] = nt
-					go nt.Start()
-
-				}
-
-			}
-			// stop old
-			for _, key := range localIds {
-				if _, found := remoteTargetIds[key]; !found {
-					LTM.Map[key].Stop()
-					delete(LTM.Map, key)
-				}
-			}
+			LTM.realRefreshWork(tgs)
 
 		}
 	}
