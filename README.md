@@ -1,6 +1,12 @@
-# Xprober
+
+# Xprober预览图
+### 互ping 结果
+
 ![image](https://github.com/ning1875/xprober/blob/master/images/ping.jpg)
+### http 探测结果
 ![image](https://github.com/ning1875/xprober/blob/master/images/http.jpg)
+
+### 专线延迟报警
 ![image](https://github.com/ning1875/xprober/blob/master/images/zhuanxian_mon.jpg)
 
 
@@ -43,16 +49,7 @@ eg: 4个region{a-d}中各2个vm{1-8}，结果就是不同reigon间的vm需要互
 * 目标源：同时，它还支持服务器端配置文件以指定目标
 * Http监控：它可以获取从不同区域到目标接口在不同http阶段花费的时间
 
-## 预览图
 
-### http 探测结果
-![http.jpg](/img/bVbIfkm)
-
-### 互ping 结果
-
-![ping.jpg](/img/bVbIfkp)
-### 专线延迟报警
-![专线报警.jpg](/img/bVbJhZE)
 # 如何使用
 - 在公有云各个region中各开至少2个小规格的vm: 1c2g即可
 - 编译并部署server服务
