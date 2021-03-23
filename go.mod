@@ -12,5 +12,6 @@ require (
 	github.com/shimingyah/pool v0.0.0-20190724082523-04bd98b0fbfe // indirect
 	golang.org/x/net v0.0.0-20190813141303-74dc4d7220e7
 	google.golang.org/grpc v1.28.1
+	gopkg.in/alecthomas/kingpin.v2 v2.2.6
 	gopkg.in/yaml.v2 v2.2.4
 )

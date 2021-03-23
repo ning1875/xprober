@@ -2,31 +2,64 @@ package main
 
 import (
 	"os"
-	"syscall"
 	"os/signal"
+	"path/filepath"
+	"syscall"
+	"time"
 
-	"gopkg.in/alecthomas/kingpin.v2"
+	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/prometheus/common/promlog"
-	"github.com/prometheus/common/promlog/flag"
+	promlogflag "github.com/prometheus/common/promlog/flag"
 	"github.com/prometheus/common/version"
+	"gopkg.in/alecthomas/kingpin.v2"
 
 	"xprober/pkg/agent"
 )
 
 var (
-	grpcServerAddress = kingpin.Flag("grpc.server-address", "server addr").Default(":6001").String()
+	app               = kingpin.New(filepath.Base(os.Args[0]), "The xprober-agent")
+	grpcServerAddress = app.Flag("grpc.server-address", "server addr").Default(":6001").String()
 )
 
 func main() {
 
-	// init logger
-	promlogConfig := &promlog.Config{}
-	flag.AddFlags(kingpin.CommandLine, promlogConfig)
-	kingpin.Version(version.Print("xprober-agent"))
-	kingpin.HelpFlag.Short('h')
-	kingpin.Parse()
-	logger := promlog.New(promlogConfig)
+	promlogConfig := promlog.Config{}
+
+	app.Version(version.Print("xprober-agent"))
+	app.HelpFlag.Short('h')
+	promlogflag.AddFlags(app, &promlogConfig)
+	kingpin.MustParse(app.Parse(os.Args[1:]))
+
+	var logger log.Logger
+	logger = func(config *promlog.Config) log.Logger {
+		var (
+			l  log.Logger
+			le level.Option
+		)
+		if config.Format.String() == "logfmt" {
+			l = log.NewLogfmtLogger(log.NewSyncWriter(os.Stderr))
+		} else {
+			l = log.NewJSONLogger(log.NewSyncWriter(os.Stderr))
+		}
+
+		switch config.Level.String() {
+		case "debug":
+			le = level.AllowDebug()
+		case "info":
+			le = level.AllowInfo()
+		case "warn":
+			le = level.AllowWarn()
+		case "error":
+			le = level.AllowError()
+		}
+		l = level.NewFilter(l, le)
+		l = log.With(l, "ts", log.TimestampFormat(
+			func() time.Time { return time.Now().Local() },
+			"2006-01-02T15:04:05.000Z07:00",
+		), "caller", log.DefaultCaller)
+		return l
+	}(&promlogConfig)
 
 	//init local region and get ip
 	if regionSucc := agent.GetLocalRegionByEc2(logger); regionSucc == false {

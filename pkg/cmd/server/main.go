@@ -1,19 +1,23 @@
 package main
 
 import (
+	"context"
+
+	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
-	"context"
-	"net/http"
+	"time"
 
-	"github.com/oklog/run"
-	"gopkg.in/alecthomas/kingpin.v2"
+	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
-	"github.com/prometheus/common/version"
-	"github.com/prometheus/common/promlog"
-	"github.com/prometheus/common/promlog/flag"
+	"github.com/oklog/run"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/prometheus/common/promlog"
+	promlogflag "github.com/prometheus/common/promlog/flag"
+	"github.com/prometheus/common/version"
+	"gopkg.in/alecthomas/kingpin.v2"
 
 	rc "xprober/pkg/server"
 )
@@ -21,24 +25,55 @@ import (
 func main() {
 
 	var (
-		//app = kingpin.New(filepath.Base(os.Args[0]), "The Xprober")
-		configFile = kingpin.Flag("config.file", "xprober configuration file path.").Default("xprober.yml").String()
-		//grpcListenAddress = kingpin.Flag("grpc.listen-address", "Address to listen on for the grpc interface, API, and telemetry.").Default(":6001").String()
-		//webListenAddr     = kingpin.Flag("web.listen-address", "Address to listen on for the web interface, API, and telemetry.").Default(":6002").String()
+		app        = kingpin.New(filepath.Base(os.Args[0]), "The xprober-server")
+		configFile = app.Flag("config.file", "xprober configuration file path.").Default("xprober.yml").String()
 	)
 
-	// init logger
-	promlogConfig := &promlog.Config{}
-	flag.AddFlags(kingpin.CommandLine, promlogConfig)
-	kingpin.Version(version.Print("xprober"))
-	kingpin.HelpFlag.Short('h')
-	kingpin.Parse()
-	logger := promlog.New(promlogConfig)
+	promlogConfig := promlog.Config{}
+
+	app.Version(version.Print("xprober-server"))
+	app.HelpFlag.Short('h')
+	promlogflag.AddFlags(app, &promlogConfig)
+	kingpin.MustParse(app.Parse(os.Args[1:]))
+
+	var logger log.Logger
+	logger = func(config *promlog.Config) log.Logger {
+		var (
+			l  log.Logger
+			le level.Option
+		)
+		if config.Format.String() == "logfmt" {
+			l = log.NewLogfmtLogger(log.NewSyncWriter(os.Stderr))
+		} else {
+			l = log.NewJSONLogger(log.NewSyncWriter(os.Stderr))
+		}
+
+		switch config.Level.String() {
+		case "debug":
+			le = level.AllowDebug()
+		case "info":
+			le = level.AllowInfo()
+		case "warn":
+			le = level.AllowWarn()
+		case "error":
+			le = level.AllowError()
+		}
+		l = level.NewFilter(l, le)
+		l = log.With(l, "ts", log.TimestampFormat(
+			func() time.Time { return time.Now().Local() },
+			"2006-01-02T15:04:05.000Z07:00",
+		), "caller", log.DefaultCaller)
+		return l
+	}(&promlogConfig)
 
 	// new grpc manager
 	ctxAll, cancelAll := context.WithCancel(context.Background())
 
-	sConfig, _ := rc.LoadFile(*configFile, logger)
+	sConfig, err := rc.LoadFile(*configFile, logger)
+	if err != nil {
+		level.Error(logger).Log("msg", "load_config_file_error", "err", err)
+		return
+	}
 	grpcListenAddress := sConfig.RpcListenAddr
 
 	webListenAddr := sConfig.MetricsListenAddr

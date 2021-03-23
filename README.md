@@ -1,13 +1,16 @@
+# 架构图
 
+![image](./images/xprober架构图.jpg)
 # Xprober预览图
+
 ### 互ping 结果
 
-![image](https://github.com/ning1875/xprober/blob/master/images/ping.jpg)
+![image](./images/ping.jpg)
 ### http 探测结果
-![image](https://github.com/ning1875/xprober/blob/master/images/http.jpg)
+![image](./images/http.jpg)
 
 ### 专线延迟报警
-![image](https://github.com/ning1875/xprober/blob/master/images/zhuanxian_mon.jpg)
+![image](./images/zhuanxian_mon.jpg)
 
 
 # 需求分析
@@ -15,7 +18,7 @@
 - 多region为一般公司内网架构
 - 这个工具能提供网络性能数据监控
 - 同时也参考调研了tor维度的[pingmesh方案](https://zdyxry.github.io/2020/03/26/%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB-%E3%80%8APingmesh-A-Large-Scale-System-for-Data-Center-Network-Latency-Measurement-and-Analysis%E3%80%8B/)
-![image](https://github.com/ning1875/xprober/blob/master/images/ping_mesh.jpg)
+![image](./images/ping_mesh.jpg)
 
 ## 总结
 **key1** 其实最主要能看到公有混合云内网所有region两两之间的延迟和丢包率
