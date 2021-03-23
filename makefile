@@ -17,8 +17,8 @@ deps:
 	export GOPROXY=http://goproxy.io
 	export GO111MODULE=on
 build:
-		${GOBUILD}  -v  -ldflags ${LDFLAGES} -o ${BINARY_NAME_SERVER} pkg/server/main.go
-		${GOBUILD}  -v  -ldflags ${LDFLAGES} -o ${BINARY_NAME_AGENT} pkg/agent/main.go
+		${GOBUILD}  -v  -ldflags ${LDFLAGES} -o ${BINARY_NAME_SERVER} pkg/cmd/server/main.go
+		${GOBUILD}  -v  -ldflags ${LDFLAGES} -o ${BINARY_NAME_AGENT} pkg/cmd/agent/main.go
 test:
 		${GOTEST} -v ./...
 clean:
